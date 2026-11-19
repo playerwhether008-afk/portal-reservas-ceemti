@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Portal de Reservas CEEMTI BG</title>
+<style>
+:root{--verde:#1f5c4a;--verde2:#e3efe9;--tinta:#1d2a26;--papel:#faf8f3;--linha:#d8d4c8;--ambar:#f3e2b3;--erro:#a3262a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--papel);color:var(--tinta);font:16px/1.5 Georgia,"Times New Roman",serif}
+h1,h2,h3,button,label,input,select,nav,.slot{font-family:"Segoe UI",Roboto,Arial,sans-serif}
+header{background:var(--verde);color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+header h1{margin:0;font-size:1.15rem;font-weight:600}
+header span{font-size:.9rem}
+main{max-width:860px;margin:0 auto;padding:20px}
+nav{display:flex;gap:2px 6px;margin-bottom:10px;align-items:center;border-bottom:2px solid var(--linha);flex-wrap:wrap}
+nav button{background:none;border:0;padding:10px 14px;font-size:1rem;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;color:var(--tinta)}
+nav button.on{border-color:var(--verde);font-weight:700;color:var(--verde)}
+.grp{font:600 .85rem "Segoe UI",Arial,sans-serif;color:#5b5b50;flex-basis:100%;padding:2px 0 0}
+@media(min-width:640px){.grp{flex-basis:auto;padding:10px 10px 10px 0;min-width:104px}}
+nav.adm{border-color:#c9a53a;margin-bottom:18px}
+nav.adm button.on{border-color:#a07a00;color:#6e5200}
+.selo{background:#f3e2b3;color:#4a3800;border-radius:10px;padding:1px 9px;font-size:.8rem;margin-left:6px}
+td.cel{background:var(--ambar);min-width:110px}
+button,input,select{font-size:1rem}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #e0a100;outline-offset:2px}
+.card{background:#fff;border:1px solid var(--linha);border-radius:6px;padding:20px}
+.login{max-width:380px;margin:30px auto}
+label{display:block;font-size:.9rem;font-weight:600;margin:12px 0 4px}
+input,select{width:100%;padding:9px 10px;border:1px solid #9a9686;border-radius:4px;background:#fff}
+.btn{background:var(--verde);color:#fff;border:0;border-radius:4px;padding:10px 16px;cursor:pointer;margin-top:14px;font-weight:600}
+.btn.sec{background:#fff;color:var(--verde);border:1px solid var(--verde);margin:0;padding:6px 12px}
+.sair{background:none;border:1px solid #fff;color:#fff;border-radius:4px;padding:5px 12px;cursor:pointer;margin-left:10px}
+.erro{color:var(--erro);font-family:"Segoe UI",Arial,sans-serif;font-size:.9rem}
+.erro-box{background:#fbe9e7;border:1px solid var(--erro);color:#7a1417;border-radius:4px;padding:9px 12px;margin:14px 0 0;font:600 .9rem "Segoe UI",Arial,sans-serif}
+.erro-box:empty{display:none}
+#toast{display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);max-width:92vw;z-index:9;padding:11px 18px;border-radius:5px;font:600 .95rem "Segoe UI",Arial,sans-serif;box-shadow:0 3px 10px rgba(0,0,0,.3);cursor:pointer;color:#fff}
+#toast.t-erro{display:block;background:#a3262a}
+#toast.t-ok{display:block;background:var(--verde)}
+.btn-g{width:100%;background:#fff;color:var(--tinta);border:1px solid #6f6b5e;border-radius:4px;padding:10px;cursor:pointer;font-weight:600;margin-top:6px}
+.btn-g:hover{background:var(--verde2)}
+.ou{text-align:center;color:#5b5b50;font:.85rem "Segoe UI",Arial,sans-serif;margin:14px 0 0}
+.aviso{background:var(--ambar);padding:8px 12px;border-radius:4px;font-family:"Segoe UI",Arial,sans-serif;font-size:.85rem;margin-bottom:14px}
+.filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+.grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.slot{display:flex;flex-direction:column;gap:2px;text-align:left;padding:10px;border-radius:5px;border:1px solid var(--linha);background:#fff;font-size:.9rem}
+.slot.livre{border-color:var(--verde);background:var(--verde2);cursor:pointer}
+.slot.livre:hover{background:#cfe5da}
+.slot.ocupada{background:var(--ambar);border-color:#d3bd7e}
+.slot.minha{background:var(--verde);color:#fff;border-color:var(--verde)}
+.slot span{font-weight:600}
+table{width:100%;border-collapse:collapse;font-family:"Segoe UI",Arial,sans-serif;font-size:.9rem}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--linha);vertical-align:top}
+.rolar{overflow-x:auto}
+h2{margin:0 0 12px;font-size:1.2rem}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Portal de Reservas · CEEMTI Baixo Guandu</h1>
+  <div id="topo"></div>
+</header>
+<main id="app"></main>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+/* ========== CONFIGURAÇÃO (a equipe edita só esta parte) ========== */
+// Cole aqui o objeto firebaseConfig do seu projeto Firebase.
+// Enquanto estiver null, o portal roda em MODO DEMONSTRAÇÃO (dados só neste navegador).
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBt5apDbYPhUGnTwTxBRwGJWWgZnpG6zXg",
+  authDomain: "projeto-1-95464.firebaseapp.com",
+  projectId: "projeto-1-95464",
+  storageBucket: "projeto-1-95464.firebasestorage.app",
+  messagingSenderId: "992582689710",
+  appId: "1:992582689710:web:dd576e831106e9b7bcde3f",
+  measurementId: "G-6CGRVV94CL"
+};
+/* Exemplo:
+const FIREBASE_CONFIG = {
+  apiKey:"...", authDomain:"seu-projeto.firebaseapp.com", projectId:"seu-projeto",
+  storageBucket:"seu-projeto.appspot.com", messagingSenderId:"...", appId:"..."
+}; */
+
+// E-mails que têm acesso ao painel do administrador (coordenação/secretaria).
+const ADMINS = ["coordenacao@educador.es.gov.br"];
+
+// Só e-mails deste domínio podem se cadastrar e entrar.
+const DOMINIO = "@educador.es.gov.br";
+
+// Recursos iniciais. Depois de publicado, o administrador gerencia os recursos pelo painel.
+const RECURSOS_PADRAO = [
+  {id:"chromebooks", nome:"Chromebooks (carrinho)"},
+  {id:"sala1", nome:"Sala 1"},
+  {id:"sala2", nome:"Sala 2"},
+  {id:"lied1", nome:"LIED 1 (Laboratório de Informática 1)"},
+  {id:"lied2", nome:"LIED 2 (Laboratório de Informática 2)"},
+  {id:"lab", nome:"Laboratório de Ciências"},
+  {id:"auditorio", nome:"Auditório"},
+  {id:"quadra", nome:"Quadra"}
+];
+
+let RECURSOS = RECURSOS_PADRAO.map((r, i) => ({...r, ativo:true, ordem:i}));
+
+// Horários das aulas. Ajuste para o horário real da escola.
+const AULAS = [
+  {id:"a1", nome:"1ª aula · 07:30–08:20"},
+  {id:"a2", nome:"2ª aula · 08:20–09:10"},
+  // Café da manhã: 09:10–09:30 (20 min)
+  {id:"a3", nome:"3ª aula · 09:30–10:20"},
+  {id:"a4", nome:"4ª aula · 10:20–11:10"},
+  {id:"a5", nome:"5ª aula · 11:10–12:00"},
+  // Almoço: 12:00–13:20 (1h 20min)
+  {id:"a6", nome:"6ª aula · 13:20–14:10"},
+  {id:"a7", nome:"7ª aula · 14:10–15:00"},
+  // Café da tarde: 15:00–15:20 (20 min)
+  {id:"a8", nome:"8ª aula · 15:20–16:10", semSexta:true},
+  {id:"a9", nome:"9ª aula · 16:10–17:00", semSexta:true}
+];
+/* ================================================================ */
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const hoje = () => new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+const fmt = d => d.split("-").reverse().join("/");
+const nomeRec = id => (RECURSOS.find(r => r.id === id) || {}).nome || id;
+const nomeAula = id => (AULAS.find(a => a.id === id) || {}).nome || id;
+const diaSemana = d => new Date(d + "T12:00:00").getDay();
+const aulasDoDia = d => AULAS;
+const ERROS = {
+  "auth/invalid-credential":"E-mail ou senha incorretos.",
+  "auth/wrong-password":"E-mail ou senha incorretos.",
+  "auth/user-not-found":"Não existe conta com este e-mail. Use \"Primeiro acesso? Criar conta\".",
+  "auth/invalid-email":"E-mail inválido. Confira se digitou certo.",
+  "auth/email-already-in-use":"Este e-mail já está cadastrado. Use Entrar.",
+  "auth/weak-password":"A senha precisa ter pelo menos 6 caracteres.",
+  "auth/too-many-requests":"Muitas tentativas. Espere alguns minutos e tente de novo.",
+  "auth/network-request-failed":"Sem conexão com a internet. Verifique a rede e tente de novo.",
+  "auth/user-disabled":"Esta conta foi desativada. Fale com a coordenação.",
+  "auth/operation-not-allowed":"O login por e-mail e senha não está ativado no Firebase.",
+  "auth/unauthorized-domain":"Este endereço não está autorizado no Firebase (Authentication > Configurações > Domínios autorizados).",
+  "auth/invalid-api-key":"Chave do Firebase inválida. Confira o firebaseConfig no index.html.",
+  "dominio":"Use seu e-mail institucional @educador.es.gov.br.",
+  "auth/popup-closed-by-user":"A janela do Google foi fechada antes de terminar. Tente de novo.",
+  "auth/popup-blocked":"O navegador bloqueou a janela do Google. Permita pop-ups para este site e tente de novo.",
+  "auth/account-exists-with-different-credential":"Este e-mail já foi cadastrado com senha. Entre usando e-mail e senha.",
+  "nao-verificado":"Confirme seu e-mail pelo link que enviamos (veja também o spam) e depois entre.",
+  "permission-denied":"Sem permissão. Confira as regras do Firestore e se seu e-mail está confirmado.",
+  "unavailable":"Servidor indisponível no momento. Tente de novo em instantes."
+};
+const erroMsg = e => ERROS[e && e.code]
+  || (e && e.code ? `Não foi possível concluir (${e.code}). Tente de novo.` : (e && e.message) || "Algo deu errado. Tente de novo.");
+let tT;
+function toast(txt, ok){
+  let t = $("#toast");
+  if (!t) { t = document.createElement("div"); t.id = "toast"; t.setAttribute("role", "alert"); document.body.appendChild(t); }
+  t.textContent = txt; t.className = ok ? "t-ok" : "t-erro"; t.onclick = () => { t.className = ""; };
+  clearTimeout(tT); tT = setTimeout(() => { t.className = ""; }, ok ? 3000 : 9000);
+}
+window.addEventListener("unhandledrejection", e => toast(erroMsg(e.reason)));
+window.addEventListener("error", e => toast("Erro inesperado: " + e.message));
+
+/* ---------- Camada de dados: Firebase ou modo demonstração ---------- */
+let A, erroInicial = "";
+if (FIREBASE_CONFIG) {
+  try {
+  if (typeof firebase === "undefined") throw new Error("Não foi possível carregar o Firebase. Verifique a internet.");
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const auth = firebase.auth(), db = firebase.firestore();
+  const u2 = u => (u && u.emailVerified && (u.email || "").toLowerCase().endsWith(DOMINIO)) ? {uid:u.uid, nome:u.displayName || u.email, email:u.email} : null;
+  const log = (acao, r) => db.collection("historico").add({
+    acao, recurso:r.recurso, data:r.data, aula:r.aula, turma:r.turma, prof:r.prof, uid:r.uid,
+    quando:firebase.firestore.FieldValue.serverTimestamp()
+  });
+  const lista = s => s.docs.map(x => ({id:x.id, ...x.data()}));
+  A = {
+    demo:false,
+    iniciar:(cb, er) => auth.onAuthStateChanged(u => cb(u2(u)), er),
+    atual:() => u2(auth.currentUser),
+    async login(e, p){
+      const c = await auth.signInWithEmailAndPassword(e, p);
+      if (!c.user.emailVerified) { await auth.signOut(); throw {code:"nao-verificado"}; }
+    },
+    async google(){
+      const pr = new firebase.auth.GoogleAuthProvider();
+      pr.setCustomParameters({hd:DOMINIO.slice(1), prompt:"select_account"});
+      const c = await auth.signInWithPopup(pr);
+      if (!(c.user.email || "").toLowerCase().endsWith(DOMINIO)) {
+        await c.user.delete().catch(() => {}); await auth.signOut(); throw {code:"dominio"};
+      }
+    },
+    async cadastro(n, e, p){ const c = await auth.createUserWithEmailAndPassword(e, p); await c.user.updateProfile({displayName:n});
+      await c.user.sendEmailVerification(); await auth.signOut(); return "verificar";
+    },
+    sair:() => auth.signOut(),
+    async recursos(){ return lista(await db.collection("recursos").get()); },
+    async salvaRecurso(r){ await db.collection("recursos").doc(r.id).set({nome:r.nome, ativo:r.ativo !== false, ordem:r.ordem || 0}); },
+    async registra(u){
+      const ref = db.collection("usuarios").doc(u.uid), s = await ref.get();
+      if (s.exists) { await ref.update({nome:u.nome, email:u.email}); return s.data(); }
+      await ref.set({nome:u.nome, email:u.email}); return {};
+    },
+    async usuarios(){ return lista(await db.collection("usuarios").get()); },
+    async bloqueia(id, b){ await db.collection("usuarios").doc(id).update({bloqueado:b}); },
+    async doDia(d){ return lista(await db.collection("reservas").where("data", "==", d).get()); },
+    async minhas(uid){ return lista(await db.collection("reservas").where("uid", "==", uid).get()); },
+    async futuras(){ return lista(await db.collection("reservas").where("data", ">=", hoje()).get()); },
+    async reservar(r){
+      const ref = db.collection("reservas").doc(`${r.recurso}_${r.data}_${r.aula}`);
+      await db.runTransaction(async t => {
+        if ((await t.get(ref)).exists) throw new Error("Esse horário acabou de ser reservado por outra pessoa.");
+        t.set(ref, r);
+      });
+      await log("reservou", r);
+    },
+    async cancelar(r){ await db.collection("reservas").doc(r.id).delete(); await log("cancelou", r); },
+    async historico(){
+      const s = await db.collection("historico").orderBy("quando", "desc").limit(100).get();
+      return s.docs.map(x => { const d = x.data(); return {...d, quando:(d.quando ? d.quando.toDate() : new Date()).toISOString()}; });
+    }
+  };
+  } catch (e) { erroInicial = erroMsg(e); }
+} else {
+  let store, soMemoria = false;
+  try { localStorage.setItem("_t", "1"); localStorage.removeItem("_t"); store = localStorage; }
+  catch (e) { const m = {}; soMemoria = true; store = {getItem:k => m[k] ?? null, setItem:(k, v) => { m[k] = String(v); }, removeItem:k => { delete m[k]; }}; }
+  const L = (k, v) => v === undefined ? JSON.parse(store.getItem(k) || "[]") : store.setItem(k, JSON.stringify(v));
+  const sess = () => JSON.parse(store.getItem("sess") || "null");
+  const log = (acao, r) => L("historico", [{acao, ...r, quando:new Date().toISOString()}, ...L("historico")]);
+  A = {
+    demo:true, soMemoria,
+    iniciar:cb => cb(sess()),
+    atual:sess,
+    async login(e, p){
+      const u = L("users").find(x => x.email === e && x.senha === p);
+      if (!u) throw {code:"auth/invalid-credential"};
+      store.setItem("sess", JSON.stringify({uid:u.uid, nome:u.nome, email:u.email}));
+    },
+    async google(){
+      const raw = prompt("Simulação do Google: digite seu e-mail institucional");
+      if (raw === null) throw {code:"auth/cancelled-popup-request"};
+      const e = raw.trim().toLowerCase();
+      if (!e.endsWith(DOMINIO)) throw {code:"dominio"};
+      let u = L("users").find(x => x.email === e);
+      if (!u) { u = {uid:"u" + Date.now(), nome:e.split("@")[0], email:e, senha:""}; L("users", [...L("users"), u]); }
+      store.setItem("sess", JSON.stringify({uid:u.uid, nome:u.nome, email:u.email}));
+    },
+    async cadastro(n, e, p){
+      if (L("users").some(x => x.email === e)) throw {code:"auth/email-already-in-use"};
+      const u = {uid:"u" + Date.now(), nome:n, email:e, senha:p};
+      L("users", [...L("users"), u]);
+      store.setItem("sess", JSON.stringify({uid:u.uid, nome:n, email:e}));
+    },
+    async sair(){ store.removeItem("sess"); },
+    async recursos(){ return L("recursos"); },
+    async salvaRecurso(r){ const l = L("recursos").filter(x => x.id !== r.id); L("recursos", [...l, r]); },
+    async registra(u){
+      const l = L("usuarios"); let d = l.find(x => x.id === u.uid);
+      if (!d) { d = {id:u.uid, nome:u.nome, email:u.email}; L("usuarios", [...l, d]); }
+      return d;
+    },
+    async usuarios(){ return L("usuarios"); },
+    async bloqueia(id, b){ L("usuarios", L("usuarios").map(x => x.id === id ? {...x, bloqueado:b} : x)); },
+    async doDia(d){ return L("reservas").filter(r => r.data === d); },
+    async minhas(uid){ return L("reservas").filter(r => r.uid === uid); },
+    async futuras(){ return L("reservas").filter(r => r.data >= hoje()); },
+    async reservar(r){
+      const id = `${r.recurso}_${r.data}_${r.aula}`;
+      if (L("reservas").some(x => x.id === id)) throw new Error("Esse horário já está reservado.");
+      L("reservas", [...L("reservas"), {...r, id}]);
+      log("reservou", r);
+    },
+    async cancelar(r){ L("reservas", L("reservas").filter(x => x.id !== r.id)); log("cancelou", r); },
+    async historico(){ return L("historico").slice(0, 100); }
+  };
+}
+
+/* ---------- Estado e telas ---------- */
+let U = null, aba = "reservar", modoCad = false, cache = [], info = "";
+let sel = {recurso:RECURSOS[0].id, data:hoje(), turma:"", fRec:"", fData:"", qData:hoje()};
+const ehAdm = () => !!U && ADMINS.includes(U.email);
+const ordena = l => l.sort((a, b) => (a.data + a.aula).localeCompare(b.data + b.aula));
+const opcRec = (v, todos) => (todos ? `<option value="">Todos</option>` : "") + RECURSOS.filter(r => todos || r.ativo !== false).map(r => `<option value="${r.id}" ${r.id === v ? "selected" : ""}>${esc(r.nome)}</option>`).join("");
+const linhaRes = (r, prof) => `<tr><td>${fmt(r.data)}</td><td>${esc(nomeAula(r.aula))}</td><td>${esc(nomeRec(r.recurso))}</td><td>${esc(r.turma)}</td>${prof ? `<td>${esc(r.prof)}</td>` : ""}<td><button class="btn sec" onclick="cancelar('${esc(r.id)}')">Cancelar</button></td></tr>`;
+const tabela = (l, prof) => l.length
+  ? `<div class="rolar"><table><tr><th>Data</th><th>Aula</th><th>Recurso</th><th>Turma</th>${prof ? "<th>Professor</th>" : ""}<th></th></tr>${l.map(r => linhaRes(r, prof)).join("")}</table></div>`
+  : "<p>Nenhuma reserva encontrada.</p>";
+const demo = () => A.demo ? `<p class="aviso">Modo demonstração: ${A.soMemoria ? "os dados somem ao recarregar a página (abra o arquivo direto no navegador para guardá-los)." : "os dados ficam só neste navegador."}</p>` : "";
+
+function telaLogin(){
+  $("#topo").innerHTML = "";
+  const msg = info;
+  $("#app").innerHTML = `${demo()}${msg ? `<p class="aviso ok" role="status">${esc(msg)}</p>` : ""}
+  <section class="card login"><h2>${modoCad ? "Criar conta" : "Entrar"}</h2>
+  <p>Acesso só com e-mail institucional <b>${DOMINIO}</b>: conta Google da escola ou e-mail e senha.</p>
+  <p class="erro-box" id="erro" role="alert"></p>
+  <button type="button" class="btn-g" id="g">Entrar com conta Google</button>
+  <p class="ou">ou use e-mail e senha</p>
+  <form id="f" novalidate>${modoCad ? '<label>Nome completo<input name="nome" required></label>' : ""}
+  <label>E-mail institucional<input name="email" type="email" placeholder="nome${DOMINIO}" required></label>
+  <label>Senha<input name="senha" type="password" minlength="6" required></label>
+  <button class="btn">${modoCad ? "Criar conta" : "Entrar"}</button>
+  </form>
+  <p><a href="#" id="troca">${modoCad ? "Já tenho conta" : "Primeiro acesso? Criar conta"}</a></p></section>`;
+  $("#troca").onclick = e => { e.preventDefault(); modoCad = !modoCad; info = ""; telaLogin(); };
+  $("#g").onclick = async () => {
+    $("#erro").textContent = ""; info = "";
+    try { await A.google(); modoCad = false; await entrou(A.atual()); }
+    catch (x) { if (!x || x.code !== "auth/cancelled-popup-request") $("#erro").textContent = erroMsg(x); }
+  };
+  $("#f").onsubmit = async e => {
+    e.preventDefault();
+    const f = e.target, email = f.email.value.trim().toLowerCase();
+    const erro = m => { $("#erro").textContent = m; };
+    erro(""); info = "";
+    const av = document.querySelector(".aviso.ok"); if (av) av.remove();
+    if (modoCad && f.nome.value.trim().split(/\s+/).length < 2) return erro("Informe seu nome completo.");
+    if (!email.endsWith(DOMINIO)) return erro(erroMsg({code:"dominio"}));
+    if (f.senha.value.length < 6) return erro(erroMsg({code:"auth/weak-password"}));
+    if (!navigator.onLine) return erro(erroMsg({code:"auth/network-request-failed"}));
+    try {
+      if (modoCad) {
+        if (await A.cadastro(f.nome.value.trim(), email, f.senha.value) === "verificar") {
+          modoCad = false;
+          info = "Conta criada. Enviamos um link de confirmação para " + email + ". Confirme o e-mail (veja também o spam) e depois entre.";
+          return telaLogin();
+        }
+      } else await A.login(email, f.senha.value);
+      modoCad = false; await entrou(A.atual());
+    } catch (x) { erro(erroMsg(x)); }
+  };
+}
+
+/* ----- Menu do professor ----- */
+async function vReservar(){
+  cache = await A.doDia(sel.data);
+  const ds = diaSemana(sel.data);
+  const listaAulas = aulasDoDia(sel.data);
+  const grade = (ds === 0 || ds === 6)
+    ? `<p class="aviso">Não há aulas aos sábados e domingos. Selecione um dia útil (segunda a sexta-feira).</p>`
+    : listaAulas.map(a => {
+        if (ds === 5 && a.semSexta) {
+          return `<div class="slot" style="background:#eceae2;border-color:#c7c3b5;color:#555"><b>${a.nome}</b><span>Reunião Geral</span><small>Indisponível para reserva</small></div>`;
+        }
+        const r = cache.find(o => o.recurso === sel.recurso && o.aula === a.id);
+        if (!r) return `<button class="slot livre" onclick="reservar('${a.id}')"><b>${a.nome}</b><span>Livre</span></button>`;
+        const meu = r.uid === U.uid;
+        return `<div class="slot ${meu ? "minha" : "ocupada"}"><b>${a.nome}</b><span>${meu ? "Sua reserva" : "Ocupado: " + esc(r.prof)}</span><small>Turma ${esc(r.turma)}</small></div>`;
+      }).join("");
+  return `<div class="filtros">
+    <div><label for="rec">Recurso</label><select id="rec" onchange="sel.recurso=this.value;tela()">${opcRec(sel.recurso)}</select></div>
+    <div><label for="dia">Data</label><input id="dia" type="date" min="${hoje()}" value="${sel.data}" onchange="mudaData(this.value)"></div>
+    <div><label for="turma">Turma</label><input id="turma" placeholder="Ex.: 101 RDC" value="${esc(sel.turma)}" oninput="sel.turma=this.value"></div></div>
+    <p>Informe a turma e clique em um horário livre para reservar.</p><div class="grade">${grade}</div>`;
+}
+async function vMinhas(){
+  cache = await A.minhas(U.uid);
+  return `<h2>Minhas reservas</h2>${tabela(ordena(cache.filter(r => r.data >= hoje())), false)}`;
+}
+async function vMeuHist(){
+  const l = (await A.minhas(U.uid)).sort((a, b) => (b.data + b.aula).localeCompare(a.data + a.aula));
+  return `<h2>Meu histórico de uso</h2>` + (l.length
+    ? `<div class="rolar"><table><tr><th>Data</th><th>Aula</th><th>Recurso</th><th>Turma</th><th>Situação</th></tr>${l.map(r => `<tr><td>${fmt(r.data)}</td><td>${esc(nomeAula(r.aula))}</td><td>${esc(nomeRec(r.recurso))}</td><td>${esc(r.turma)}</td><td>${r.data >= hoje() ? "Agendada" : "Concluída"}</td></tr>`).join("")}</table></div>`
+    : "<p>Você ainda não fez reservas.</p>");
+}
+
+/* ----- Menu do administrador ----- */
+async function vQuadro(){
+  cache = await A.doDia(sel.qData);
+  const ehSexta = diaSemana(sel.qData) === 5;
+  const cab = RECURSOS.filter(r => r.ativo !== false).map(r => `<th>${esc(r.nome)}</th>`).join("");
+  const linhas = AULAS.map(a => `<tr><th>${a.nome}</th>${RECURSOS.filter(r => r.ativo !== false).map(r => {
+    if (ehSexta && a.semSexta) return `<td style="background:#eceae2;color:#555;font-weight:600">Reunião Geral</td>`;
+    const x = cache.find(o => o.recurso === r.id && o.aula === a.id);
+    return x ? `<td class="cel"><b>${esc(x.prof)}</b><br>${esc(x.turma)}</td>` : "<td>Livre</td>";
+  }).join("")}</tr>`).join("");
+  return `<h2>Quadro do dia</h2><div class="filtros"><div><label for="qd">Data</label><input id="qd" type="date" value="${sel.qData}" onchange="sel.qData=this.value||hoje();tela()"></div></div>
+  <div class="rolar"><table><tr><th>Aula</th>${cab}</tr>${linhas}</table></div>`;
+}
+async function vTodas(){
+  cache = await A.futuras();
+  const l = cache.filter(r => (!sel.fRec || r.recurso === sel.fRec) && (!sel.fData || r.data === sel.fData));
+  return `<h2>Todas as reservas</h2><div class="filtros">
+    <div><label for="fr">Recurso</label><select id="fr" onchange="sel.fRec=this.value;tela()">${opcRec(sel.fRec, true)}</select></div>
+    <div><label for="fd">Data (opcional)</label><input id="fd" type="date" value="${sel.fData}" onchange="sel.fData=this.value;tela()"></div></div>${tabela(ordena(l), true)}`;
+}
+async function vHist(){
+  const h = await A.historico();
+  return `<h2>Histórico geral de uso</h2>` + (h.length
+    ? `<div class="rolar"><table><tr><th>Quando</th><th>Professor</th><th>Ação</th><th>Recurso</th><th>Data e aula</th><th>Turma</th></tr>
+    ${h.map(i => `<tr><td>${new Date(i.quando).toLocaleString("pt-BR")}</td><td>${esc(i.prof)}</td><td>${esc(i.acao)}</td><td>${esc(nomeRec(i.recurso))}</td><td>${fmt(i.data)} · ${esc(nomeAula(i.aula))}</td><td>${esc(i.turma)}</td></tr>`).join("")}</table></div>`
+    : "<p>Nenhum registro ainda.</p>");
+}
+
+async function carregaRecursos(){
+  try { const l = await A.recursos(); if (l.length) RECURSOS = l.sort((a, b) => (a.ordem || 0) - (b.ordem || 0)); }
+  catch (e) { toast(erroMsg(e)); }
+  if (!RECURSOS.some(r => r.id === sel.recurso && r.ativo !== false)) sel.recurso = (RECURSOS.find(r => r.ativo !== false) || RECURSOS[0]).id;
+}
+async function vRecursos(){
+  if (!(await A.recursos()).length) { for (const r of RECURSOS_PADRAO.map((r, i) => ({...r, ativo:true, ordem:i}))) await A.salvaRecurso(r); await carregaRecursos(); }
+  return `<h2>Recursos</h2><p>Renomeie, desative (some da lista de reservas, mas o histórico fica) ou adicione recursos.</p>
+  <div class="rolar"><table><tr><th>Nome</th><th>Situação</th><th></th></tr>${RECURSOS.map(r => `<tr><td><input id="n_${esc(r.id)}" value="${esc(r.nome)}" aria-label="Nome do recurso"></td><td>${r.ativo === false ? "Desativado" : "Ativo"}</td><td><button class="btn sec" onclick="salvaNome('${esc(r.id)}')">Salvar nome</button> <button class="btn sec" onclick="alternaRec('${esc(r.id)}')">${r.ativo === false ? "Ativar" : "Desativar"}</button></td></tr>`).join("")}</table></div>
+  <div class="filtros" style="margin-top:16px"><div><label for="novo">Novo recurso</label><input id="novo" placeholder="Ex.: Sala 3"></div><div><label>&nbsp;</label><button class="btn" style="margin-top:0" onclick="novoRec()">Adicionar</button></div></div>`;
+}
+async function salvaRec(r){
+  try { await A.salvaRecurso(r); await carregaRecursos(); toast("Recurso salvo.", true); } catch (e) { toast(erroMsg(e)); }
+  tela();
+}
+function salvaNome(id){
+  const r = RECURSOS.find(x => x.id === id), n = $("#n_" + id).value.trim();
+  if (!n) return toast("Informe o nome do recurso."); salvaRec({...r, nome:n});
+}
+function alternaRec(id){ const r = RECURSOS.find(x => x.id === id); salvaRec({...r, ativo:r.ativo === false}); }
+function novoRec(){
+  const n = $("#novo").value.trim(); if (!n) return toast("Informe o nome do recurso.");
+  let id = n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "").slice(0, 30) || "rec";
+  if (RECURSOS.some(r => r.id === id)) id += Date.now() % 10000;
+  salvaRec({id, nome:n, ativo:true, ordem:RECURSOS.length});
+}
+async function vUsuarios(){
+  const l = (await A.usuarios()).sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
+  return `<h2>Usuários</h2><p>Aparecem os professores que já entraram no portal. Bloquear impede o acesso e novas reservas.</p>` + (l.length
+    ? `<div class="rolar"><table><tr><th>Nome</th><th>E-mail</th><th>Situação</th><th></th></tr>${l.map(u => `<tr><td>${esc(u.nome)}</td><td>${esc(u.email)}</td><td>${u.bloqueado ? "Bloqueado" : "Ativo"}</td><td>${ADMINS.includes(u.email) ? "Administrador" : `<button class="btn sec" onclick="bloqueia('${esc(u.id)}', ${!u.bloqueado})">${u.bloqueado ? "Desbloquear" : "Bloquear"}</button>`}</td></tr>`).join("")}</table></div>`
+    : "<p>Nenhum usuário ainda.</p>");
+}
+async function bloqueia(id, b){
+  if (b && !confirm("Bloquear este usuário?")) return;
+  try { await A.bloqueia(id, b); toast(b ? "Usuário bloqueado." : "Usuário desbloqueado.", true); } catch (e) { toast(erroMsg(e)); }
+  tela();
+}
+
+const MENU_USER = [["reservar", "Reservar"], ["minhas", "Minhas reservas"], ["meuhist", "Meu histórico"]];
+const MENU_ADM = [["quadro", "Quadro do dia"], ["todas", "Todas as reservas"], ["recursos", "Recursos"], ["usuarios", "Usuários"], ["hist", "Histórico geral"]];
+const TELAS = {reservar:vReservar, minhas:vMinhas, meuhist:vMeuHist, quadro:vQuadro, todas:vTodas, hist:vHist, recursos:vRecursos, usuarios:vUsuarios};
+
+async function tela(){
+  if (!U) return telaLogin();
+  const adm = ehAdm();
+  if (!adm && MENU_ADM.some(m => m[0] === aba)) aba = "reservar";
+  $("#topo").innerHTML = `<span>${esc(U.nome)}${adm ? '<span class="selo">Administrador</span>' : ""}</span><button class="sair" onclick="sair()">Sair</button>`;
+  let corpo;
+  try { corpo = await TELAS[aba](); }
+  catch (e) { corpo = `<p class="erro-box" role="alert">${esc(erroMsg(e))}</p>`; }
+  const btn = ([id, n]) => `<button class="${aba === id ? "on" : ""}" onclick="aba='${id}';tela()">${n}</button>`;
+  $("#app").innerHTML = `${demo()}
+  <nav aria-label="Menu do professor"><b class="grp">Professor</b>${MENU_USER.map(btn).join("")}</nav>
+  ${adm ? `<nav class="adm" aria-label="Menu do administrador"><b class="grp">Administração</b>${MENU_ADM.map(btn).join("")}</nav>` : ""}${corpo}`;
+}
+
+function mudaData(v){
+  if (v && v < hoje()) toast("Não é possível reservar em datas que já passaram.");
+  sel.data = v && v >= hoje() ? v : hoje();
+  tela();
+}
+async function reservar(aula){
+  if (sel.data < hoje()) { sel.data = hoje(); toast("Não é possível reservar em datas que já passaram."); return tela(); }
+  const ds = diaSemana(sel.data);
+  if (ds === 0 || ds === 6) return toast("Não há aulas aos sábados e domingos.");
+  const objAula = AULAS.find(a => a.id === aula);
+  if (ds === 5 && objAula && objAula.semSexta) return toast("Na sexta-feira, a 8ª e a 9ª aulas são reservadas para Reunião Geral.");
+  if (!sel.turma.trim()) return toast("Informe a turma antes de reservar.");
+  try {
+    await A.reservar({recurso:sel.recurso, data:sel.data, aula, turma:sel.turma.trim(), prof:U.nome, uid:U.uid});
+    toast("Reserva confirmada.", true);
+  } catch (e) { toast(erroMsg(e)); }
+  tela();
+}
+async function cancelar(id){
+  const r = cache.find(x => x.id === id) || (await A.minhas(U.uid)).find(x => x.id === id);
+  if (!r || !confirm("Cancelar esta reserva?")) return;
+  try { await A.cancelar(r); toast("Reserva cancelada.", true); } catch (e) { toast(erroMsg(e)); }
+  tela();
+}
+let primeira = true, entrando = null;
+async function entrou(u){
+  const id = u ? u.uid : null;
+  if (!primeira && id === entrando) return;
+  primeira = false; entrando = id;
+  if (!u) { U = null; return tela(); }
+  try {
+    const reg = await A.registra(u);
+    if (reg.bloqueado) {
+      entrando = null; U = null; await A.sair(); info = ""; telaLogin();
+      $("#erro").textContent = "Sua conta foi bloqueada. Fale com a coordenação."; return;
+    }
+  } catch (e) { toast(erroMsg(e)); }
+  await carregaRecursos(); U = u; tela();
+}
+async function sair(){ entrando = null; await A.sair(); U = null; aba = "reservar"; tela(); }
+
+if (erroInicial || !A) $("#app").innerHTML = `<p class="erro-box" role="alert">Não foi possível iniciar o portal: ${esc(erroInicial)}</p>`;
+else A.iniciar(entrou, e => toast(erroMsg(e)));
+</script>
+</body>
+</html>
