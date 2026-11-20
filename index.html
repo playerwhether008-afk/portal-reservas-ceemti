@@ -88,8 +88,14 @@ const FIREBASE_CONFIG = {
 // E-mails que têm acesso ao painel do administrador (coordenação/secretaria).
 const ADMINS = ["coordenacao@educador.es.gov.br"];
 
-// Só e-mails deste domínio podem se cadastrar e entrar.
-const DOMINIO = "@educador.es.gov.br";
+// Só e-mails destes domínios (servidores ou educadores) podem se cadastrar e entrar.
+// IMPORTANTE: use a mesma lista de domínios e de administradores no arquivo firestore.rules.
+const DOMINIOS = ["@servidor.es.gov.br", "@educador.es.gov.br"];
+const DOMINIOS_TXT = DOMINIOS.join(" ou ");
+const dominioOk = e => {
+  e = String(e || "").trim().toLowerCase();
+  return DOMINIOS.some(d => e.endsWith(d) && e.indexOf("@") === e.length - d.length);
+};
 
 // Recursos iniciais. Depois de publicado, o administrador gerencia os recursos pelo painel.
 const RECURSOS_PADRAO = [
@@ -136,14 +142,14 @@ const ERROS = {
   "auth/user-not-found":"Não existe conta com este e-mail. Use \"Primeiro acesso? Criar conta\".",
   "auth/invalid-email":"E-mail inválido. Confira se digitou certo.",
   "auth/email-already-in-use":"Este e-mail já está cadastrado. Use Entrar.",
-  "auth/weak-password":"A senha precisa ter pelo menos 6 caracteres.",
+  "auth/weak-password":"A senha precisa ter pelo menos 8 caracteres.",
   "auth/too-many-requests":"Muitas tentativas. Espere alguns minutos e tente de novo.",
   "auth/network-request-failed":"Sem conexão com a internet. Verifique a rede e tente de novo.",
   "auth/user-disabled":"Esta conta foi desativada. Fale com a coordenação.",
   "auth/operation-not-allowed":"O login por e-mail e senha não está ativado no Firebase.",
   "auth/unauthorized-domain":"Este endereço não está autorizado no Firebase (Authentication > Configurações > Domínios autorizados).",
   "auth/invalid-api-key":"Chave do Firebase inválida. Confira o firebaseConfig no index.html.",
-  "dominio":"Use seu e-mail institucional @educador.es.gov.br.",
+  "dominio":"Use seu e-mail institucional (" + DOMINIOS_TXT + ").",
   "auth/popup-closed-by-user":"A janela do Google foi fechada antes de terminar. Tente de novo.",
   "auth/popup-blocked":"O navegador bloqueou a janela do Google. Permita pop-ups para este site e tente de novo.",
   "auth/account-exists-with-different-credential":"Este e-mail já foi cadastrado com senha. Entre usando e-mail e senha.",
@@ -170,7 +176,7 @@ if (FIREBASE_CONFIG) {
   if (typeof firebase === "undefined") throw new Error("Não foi possível carregar o Firebase. Verifique a internet.");
   firebase.initializeApp(FIREBASE_CONFIG);
   const auth = firebase.auth(), db = firebase.firestore();
-  const u2 = u => (u && u.emailVerified && (u.email || "").toLowerCase().endsWith(DOMINIO)) ? {uid:u.uid, nome:u.displayName || u.email, email:u.email} : null;
+  const u2 = u => (u && u.emailVerified && dominioOk(u.email)) ?{uid:u.uid, nome:u.displayName || u.email, email:u.email} : null;
   const log = (acao, r) => db.collection("historico").add({
     acao, recurso:r.recurso, data:r.data, aula:r.aula, turma:r.turma, prof:r.prof, uid:r.uid,
     quando:firebase.firestore.FieldValue.serverTimestamp()
@@ -186,9 +192,9 @@ if (FIREBASE_CONFIG) {
     },
     async google(){
       const pr = new firebase.auth.GoogleAuthProvider();
-      pr.setCustomParameters({hd:DOMINIO.slice(1), prompt:"select_account"});
+      pr.setCustomParameters({prompt:"select_account"});
       const c = await auth.signInWithPopup(pr);
-      if (!(c.user.email || "").toLowerCase().endsWith(DOMINIO)) {
+      if (!dominioOk(c.user.email)) {
         await c.user.delete().catch(() => {}); await auth.signOut(); throw {code:"dominio"};
       }
     },
@@ -200,7 +206,11 @@ if (FIREBASE_CONFIG) {
     async salvaRecurso(r){ await db.collection("recursos").doc(r.id).set({nome:r.nome, ativo:r.ativo !== false, ordem:r.ordem || 0}); },
     async registra(u){
       const ref = db.collection("usuarios").doc(u.uid), s = await ref.get();
-      if (s.exists) { await ref.update({nome:u.nome, email:u.email}); return s.data(); }
+      if (s.exists) {
+        const d = s.data();
+        if (!d.bloqueado && (d.nome !== u.nome || d.email !== u.email)) await ref.update({nome:u.nome, email:u.email});
+        return d;
+      }
       await ref.set({nome:u.nome, email:u.email}); return {};
     },
     async usuarios(){ return lista(await db.collection("usuarios").get()); },
@@ -243,7 +253,7 @@ if (FIREBASE_CONFIG) {
       const raw = prompt("Simulação do Google: digite seu e-mail institucional");
       if (raw === null) throw {code:"auth/cancelled-popup-request"};
       const e = raw.trim().toLowerCase();
-      if (!e.endsWith(DOMINIO)) throw {code:"dominio"};
+      if (!dominioOk(e)) throw {code:"dominio"};
       let u = L("users").find(x => x.email === e);
       if (!u) { u = {uid:"u" + Date.now(), nome:e.split("@")[0], email:e, senha:""}; L("users", [...L("users"), u]); }
       store.setItem("sess", JSON.stringify({uid:u.uid, nome:u.nome, email:u.email}));
@@ -281,10 +291,10 @@ if (FIREBASE_CONFIG) {
 /* ---------- Estado e telas ---------- */
 let U = null, aba = "reservar", modoCad = false, cache = [], info = "";
 let sel = {recurso:RECURSOS[0].id, data:hoje(), turma:"", fRec:"", fData:"", qData:hoje()};
-const ehAdm = () => !!U && ADMINS.includes(U.email);
+const ehAdm = () => !!U && ADMINS.includes((U.email || "").toLowerCase());
 const ordena = l => l.sort((a, b) => (a.data + a.aula).localeCompare(b.data + b.aula));
 const opcRec = (v, todos) => (todos ? `<option value="">Todos</option>` : "") + RECURSOS.filter(r => todos || r.ativo !== false).map(r => `<option value="${r.id}" ${r.id === v ? "selected" : ""}>${esc(r.nome)}</option>`).join("");
-const linhaRes = (r, prof) => `<tr><td>${fmt(r.data)}</td><td>${esc(nomeAula(r.aula))}</td><td>${esc(nomeRec(r.recurso))}</td><td>${esc(r.turma)}</td>${prof ? `<td>${esc(r.prof)}</td>` : ""}<td><button class="btn sec" onclick="cancelar('${esc(r.id)}')">Cancelar</button></td></tr>`;
+const linhaRes = (r, prof) => `<tr><td>${fmt(r.data)}</td><td>${esc(nomeAula(r.aula))}</td><td>${esc(nomeRec(r.recurso))}</td><td>${esc(r.turma)}</td>${prof ? `<td>${esc(r.prof)}</td>` : ""}<td><button class="btn sec" data-id="${esc(r.id)}" onclick="cancelar(this.dataset.id)">Cancelar</button></td></tr>`;
 const tabela = (l, prof) => l.length
   ? `<div class="rolar"><table><tr><th>Data</th><th>Aula</th><th>Recurso</th><th>Turma</th>${prof ? "<th>Professor</th>" : ""}<th></th></tr>${l.map(r => linhaRes(r, prof)).join("")}</table></div>`
   : "<p>Nenhuma reserva encontrada.</p>";
@@ -295,13 +305,13 @@ function telaLogin(){
   const msg = info;
   $("#app").innerHTML = `${demo()}${msg ? `<p class="aviso ok" role="status">${esc(msg)}</p>` : ""}
   <section class="card login"><h2>${modoCad ? "Criar conta" : "Entrar"}</h2>
-  <p>Acesso só com e-mail institucional <b>${DOMINIO}</b>: conta Google da escola ou e-mail e senha.</p>
+  <p>Acesso só com e-mail institucional <b>${DOMINIOS_TXT}</b>: conta Google institucional ou e-mail e senha.</p>
   <p class="erro-box" id="erro" role="alert"></p>
   <button type="button" class="btn-g" id="g">Entrar com conta Google</button>
   <p class="ou">ou use e-mail e senha</p>
   <form id="f" novalidate>${modoCad ? '<label>Nome completo<input name="nome" required></label>' : ""}
-  <label>E-mail institucional<input name="email" type="email" placeholder="nome${DOMINIO}" required></label>
-  <label>Senha<input name="senha" type="password" minlength="6" required></label>
+  <label>E-mail institucional<input name="email" type="email" placeholder="nome${DOMINIOS[0]}" required></label>
+  <label>Senha${modoCad ? " (mínimo 8 caracteres)" : ""}<input name="senha" type="password" minlength="${modoCad ? 8 : 6}" autocomplete="${modoCad ? "new-password" : "current-password"}" required></label>
   <button class="btn">${modoCad ? "Criar conta" : "Entrar"}</button>
   </form>
   <p><a href="#" id="troca">${modoCad ? "Já tenho conta" : "Primeiro acesso? Criar conta"}</a></p></section>`;
@@ -318,8 +328,8 @@ function telaLogin(){
     erro(""); info = "";
     const av = document.querySelector(".aviso.ok"); if (av) av.remove();
     if (modoCad && f.nome.value.trim().split(/\s+/).length < 2) return erro("Informe seu nome completo.");
-    if (!email.endsWith(DOMINIO)) return erro(erroMsg({code:"dominio"}));
-    if (f.senha.value.length < 6) return erro(erroMsg({code:"auth/weak-password"}));
+    if (!dominioOk(email)) return erro(erroMsg({code:"dominio"}));
+    if (modoCad && f.senha.value.length < 8) return erro(erroMsg({code:"auth/weak-password"}));
     if (!navigator.onLine) return erro(erroMsg({code:"auth/network-request-failed"}));
     try {
       if (modoCad) {
@@ -403,7 +413,7 @@ async function carregaRecursos(){
 async function vRecursos(){
   if (!(await A.recursos()).length) { for (const r of RECURSOS_PADRAO.map((r, i) => ({...r, ativo:true, ordem:i}))) await A.salvaRecurso(r); await carregaRecursos(); }
   return `<h2>Recursos</h2><p>Renomeie, desative (some da lista de reservas, mas o histórico fica) ou adicione recursos.</p>
-  <div class="rolar"><table><tr><th>Nome</th><th>Situação</th><th></th></tr>${RECURSOS.map(r => `<tr><td><input id="n_${esc(r.id)}" value="${esc(r.nome)}" aria-label="Nome do recurso"></td><td>${r.ativo === false ? "Desativado" : "Ativo"}</td><td><button class="btn sec" onclick="salvaNome('${esc(r.id)}')">Salvar nome</button> <button class="btn sec" onclick="alternaRec('${esc(r.id)}')">${r.ativo === false ? "Ativar" : "Desativar"}</button></td></tr>`).join("")}</table></div>
+  <div class="rolar"><table><tr><th>Nome</th><th>Situação</th><th></th></tr>${RECURSOS.map(r => `<tr><td><input id="n_${esc(r.id)}" value="${esc(r.nome)}" aria-label="Nome do recurso"></td><td>${r.ativo === false ? "Desativado" : "Ativo"}</td><td><button class="btn sec" data-id="${esc(r.id)}" onclick="salvaNome(this.dataset.id)">Salvar nome</button> <button class="btn sec" data-id="${esc(r.id)}" onclick="alternaRec(this.dataset.id)">${r.ativo === false ? "Ativar" : "Desativar"}</button></td></tr>`).join("")}</table></div>
   <div class="filtros" style="margin-top:16px"><div><label for="novo">Novo recurso</label><input id="novo" placeholder="Ex.: Sala 3"></div><div><label>&nbsp;</label><button class="btn" style="margin-top:0" onclick="novoRec()">Adicionar</button></div></div>`;
 }
 async function salvaRec(r){
@@ -424,7 +434,7 @@ function novoRec(){
 async function vUsuarios(){
   const l = (await A.usuarios()).sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
   return `<h2>Usuários</h2><p>Aparecem os professores que já entraram no portal. Bloquear impede o acesso e novas reservas.</p>` + (l.length
-    ? `<div class="rolar"><table><tr><th>Nome</th><th>E-mail</th><th>Situação</th><th></th></tr>${l.map(u => `<tr><td>${esc(u.nome)}</td><td>${esc(u.email)}</td><td>${u.bloqueado ? "Bloqueado" : "Ativo"}</td><td>${ADMINS.includes(u.email) ? "Administrador" : `<button class="btn sec" onclick="bloqueia('${esc(u.id)}', ${!u.bloqueado})">${u.bloqueado ? "Desbloquear" : "Bloquear"}</button>`}</td></tr>`).join("")}</table></div>`
+    ? `<div class="rolar"><table><tr><th>Nome</th><th>E-mail</th><th>Situação</th><th></th></tr>${l.map(u => `<tr><td>${esc(u.nome)}</td><td>${esc(u.email)}</td><td>${u.bloqueado ? "Bloqueado" : "Ativo"}</td><td>${ADMINS.includes(u.email) ? "Administrador" : `<button class="btn sec" data-id="${esc(u.id)}" data-b="${u.bloqueado ? 0 : 1}" onclick="bloqueia(this.dataset.id, this.dataset.b === '1')">${u.bloqueado ? "Desbloquear" : "Bloquear"}</button>`}</td></tr>`).join("")}</table></div>`
     : "<p>Nenhum usuário ainda.</p>");
 }
 async function bloqueia(id, b){
